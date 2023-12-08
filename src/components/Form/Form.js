@@ -1,31 +1,56 @@
 import React, { useRef, useContext } from "react"
 import MyContext from "../cotext/context"
 const Form = () => {
-  const { myInventoryHandler } = useContext(MyContext)
-  console.log(myInventoryHandler)
+  const { setMyInventory, url, updateInventory } = useContext(MyContext)
+
   const nameRef = useRef()
   const desRef = useRef()
   const priceRef = useRef()
   const qntRef = useRef()
   const addProduct = () => {
-    const nameValue = nameRef.current.value
-    const desValue = desRef.current.value
-    const priceValue = priceRef.current.value
-    const qntValue = qntRef.current.value
-
-    const obj = {
-      name: nameValue,
-      des: desValue,
-      price: priceValue,
-      qnt: qntValue,
-    }
-
-    myInventoryHandler(obj)
-
-    nameRef.current.value = ""
-    desRef.current.value = ""
-    priceRef.current.value = ""
-    qntRef.current.value = ""
+    fetch(`${url}/products`)
+      .then((res) => {
+        if (res.ok) {
+          return res.json()
+        }
+      })
+      .then(async (data) => {
+        const findItem = data.find(
+          (data) => data.name === nameRef.current.value
+        )
+        if (findItem) {
+          console.log(findItem)
+          fetch(`${url}/products/${findItem._id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: nameRef.current.value,
+              price: priceRef.current.value,
+              qnt: parseInt(findItem.qnt) + parseInt(qntRef.current.value),
+              des: desRef.current.value,
+            }),
+          }).then((res) => {
+            updateInventory()
+          })
+        } else {
+          console.log(url)
+          await fetch(`${url}/products`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: nameRef.current.value,
+              price: priceRef.current.value,
+              qnt: qntRef.current.value,
+              des: desRef.current.value,
+            }),
+          })
+          updateInventory()
+        }
+      })
   }
   return (
     <div className="">

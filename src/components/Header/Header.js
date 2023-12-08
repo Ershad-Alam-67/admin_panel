@@ -9,9 +9,10 @@ const Header = (props) => {
   useEffect(() => {
     let total = 0
     myCart.forEach((element) => {
-      total += parseInt(element.qnt)
+      total = total + (parseInt(element.qnt) || 0)
     })
-    setTotalItems(total)
+    console.log("cart", myCart)
+    setTotalItems(total || 0)
   }, [myCart])
 
   return (

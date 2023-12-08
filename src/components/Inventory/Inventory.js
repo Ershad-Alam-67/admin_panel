@@ -1,36 +1,127 @@
 import React, { useContext, useRef, useState } from "react"
 import MyContext from "../cotext/context"
 const Inventory = () => {
-  const { myInventory, myCart, myCartHandler, setMyInventory } =
+  const { myInventory, url, myCart, updateCart, updateInventory } =
     useContext(MyContext)
-  const [itemQuantities, setItemQuantities] = useState({})
-  const inpRef = useRef()
+  const qntRef = useRef()
 
-  const addToCart = (name) => {
-    const itemToAdd = myInventory.find((item) => item.name === name)
-    const hasKey = itemQuantities.hasOwnProperty(name)
-    let itemQuantity = 0
-    if (hasKey) {
-      itemQuantity = itemQuantities[name]
-    } else {
-      itemQuantity = 1
+  const addToCart = async (name) => {
+    const findItem = myCart.find((item) => item.name === name)
+    const lookInInventory = myInventory.find((item) => item.name === name)
+    if (lookInInventory.qnt < qntRef.current.value) {
+      return alert("insufficient items")
     }
 
-    myCartHandler({ ...itemToAdd, qnt: itemQuantity })
+    if (findItem) {
+      await fetch(`${url}/cart`)
+        .then((res) => res.json())
+        .then((data) => {
+          const getItem = data.find((item) => item.name === name)
 
-    const updatedInventory = myInventory
-      .map((item) =>
-        item.name === name ? { ...item, qnt: item.qnt - itemQuantity } : item
-      )
-      .filter((item) => item.qnt !== 0)
+          fetch(`${url}/cart/${getItem._id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: getItem.name,
+              price: getItem.price,
+              qnt: parseInt(qntRef.current.value) + parseInt(getItem.qnt),
+              des: getItem.des,
+            }),
+          }).then((res) => {
+            updateCart()
+          })
+        })
+    } else {
+      const getItem = myInventory.find((item) => item.name === name)
 
-    setMyInventory(updatedInventory)
-    inpRef.current.value = null
+      fetch(`${url}/cart`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: getItem.name,
+          price: getItem.price,
+          qnt: qntRef.current.value,
+          des: getItem.des,
+        }),
+      }).then((res) => {
+        if (res.ok) {
+          updateCart()
+        }
+      })
+    }
+    const itemInInventory = myInventory.find((item) => item.name === name)
+    fetch(`${url}/products/${itemInInventory._id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: lookInInventory.name,
+        price: lookInInventory.price,
+        qnt: parseInt(lookInInventory.qnt) - parseInt(qntRef.current.value),
+        des: lookInInventory.des,
+      }),
+    }).then(() => {
+      updateInventory()
+    })
   }
 
-  const handleQuantityChange = (name, value) => {
-    setItemQuantities({ ...itemQuantities, [name]: value })
-  }
+  // const addToCart = (name) => {
+  //   const getCart = fetch(
+  //     "https://crudcrud.com/api/a92c6965cf9f4f659d58d02d58b75e8a/cart"
+  //   )
+  //     .then((res) => {
+  //       if (res.ok) {
+  //         return res.json()
+  //       }
+  //     })
+  //     .then(async (data) => {
+  //       const findItem = data.find((item) => item.name === name)
+  //       if (findItem) {
+  //         await fetch(
+  //           `https://crudcrud.com/api/a92c6965cf9f4f659d58d02d58b75e8a/cart/${findItem._id}`,
+  //           {
+  //             method: "PUT",
+  //             headers: {
+  //               "Content-Type": "application/json",
+  //             },
+  //             body: JSON.stringify({
+  //               name: findItem.name,
+  //               des: findItem.des,
+  //               price: findItem.price,
+  //               qnt: parseInt(findItem.qnt) + parseInt(itemQuantities[name]),
+  //             }),
+  //           }
+  //         )
+  //       } else {
+  //         const itemToAdd = myInventory.find((item) => item.name === name)
+  //         console.log(itemToAdd)
+  //         const postItem = fetch(
+  //           "https://crudcrud.com/api/a92c6965cf9f4f659d58d02d58b75e8a/cart",
+  //           {
+  //             method: "POST",
+  //             headers: {
+  //               "Content-Type": "application/json",
+  //             },
+  //             body: JSON.stringify({
+  //               name: itemToAdd.name,
+  //               des: itemToAdd.des,
+  //               price: itemToAdd.price,
+  //               qnt: parseInt(itemQuantities[name]),
+  //             }),
+  //           }
+  //         )
+  //       }
+  //     })
+  // }
+
+  // const handleQuantityChange = (name, value) => {
+  //   setItemQuantities({ ...itemQuantities, [name]: value })
+  // }
 
   return (
     <div className=" flex  justify-center mt-8">
@@ -58,8 +149,9 @@ const Inventory = () => {
               </div>
             </div>
           </li>
-          {myInventory.length > 0 ? (
-            myInventory.map((item) => {
+          {myInventory
+            .filter((item) => item.qnt !== 0)
+            .map((item) => {
               return (
                 <li className="flex p-1 px-2 justify-between bg-pink-200 border-slate-600 border-solid border-2  rounded-md w-[100%]">
                   <div className="flex   w-[20%] items-center">
@@ -87,10 +179,7 @@ const Inventory = () => {
                       <input
                         className=" w-[60%] rounded-sm focus:outline-none p-1 text-sm "
                         type="number"
-                        ref={inpRef}
-                        onChange={(e) => {
-                          handleQuantityChange(item.name, e.target.value)
-                        }}
+                        ref={qntRef}
                       ></input>
                     </div>
                   </div>
@@ -107,10 +196,7 @@ const Inventory = () => {
                   </div>
                 </li>
               )
-            })
-          ) : (
-            <h1 className="text-white text-center">No Item In Inventory!</h1>
-          )}
+            })}
         </ul>
       </div>
     </div>
